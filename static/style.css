@@ -1,0 +1,16 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 50px;
+}
+
+#slide-control button {
+    font-size: 20px;
+    margin: 10px;
+    padding: 10px 20px;
+}
+
+#slide-content {
+    font-size: 24px;
+    margin-top: 50px;
+}

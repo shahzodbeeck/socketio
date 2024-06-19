@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">Select Group</div>
+                <div class="card-body">
+                    <ul>
+                        <li><a href="{{ url_for('create_group') }}">Guruh Yaratish</a></li>
+                        <li><a href="{{ url_for('add_slide_to_group') }}">Silede Qo'shish</a></li>
+                        <li><a href="{{ url_for('change_slide') }}">Carasuel</a></li>
+                        <li><a href="{{ url_for('chats') }}">Chat</a></li>
+
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}
+
+
+

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header text-center">
+                    Chat in {{ group.name }}
+                </div>
+                <div class="card-body">
+                    <div id="chat-box">
+                        <input type="text" value="{{ current_user.username }}" id="current_user" hidden>
+                        {% for message in messages %}
+                            {% if message.user_id == current_user.id %}
+                                <div class="self-message">
+                                    {{ message.content }}
+                                </div>
+                            {% else %}
+                                <div class="other-message" style="background-color: {{ message.user_color }};">
+                                    <span>{{ message.user_id.username }}</span>
+                                    {{ message.content }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div style="position: fixed; width: 73%; bottom: 0; background: lightgray" class="card-footer">
+                    <form id="chat-form">
+                        <div class="input-group">
+                            <input type="hidden" id="username" value="{{ current_user.username }}">
+                            <input type="hidden" id="groupid" value="{{ group.id }}">
+                            <input type="text" id="message" class="form-control" placeholder="Type a message">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">Send</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <!-- Include jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const socket = io();
+
+            const username = document.getElementById('username').value;
+            const groupid = document.getElementById('groupid').value;
+            const userColors = {}; // Store colors for each user
+            const colors =
+                ['#ff6347',
+                    '#1e90ff',
+                    '#32cd32',
+                    '#ffa500',
+                    '#8a2be2',
+                    '#ff1493',
+                    '#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6',
+                    '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
+                    '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A',
+                    '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
+                    '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC',
+                    '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
+                    '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680',
+                    '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
+                    '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3',
+                    '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'];
+            let colorIndex = 0;
+
+            function getColorForUser(username) {
+                if (!userColors[username]) {
+                    userColors[username] = colors[colorIndex % colors.length];
+                    colorIndex++;
+                }
+                return userColors[username];
+            }
+
+            socket.emit('join', {username: username, group_id: groupid});
+
+            document.getElementById('chat-form').addEventListener('submit', function (event) {
+                event.preventDefault();
+                const messageInput = document.getElementById('message');
+                const message = messageInput.value.trim();
+
+                if (message !== '') {
+                    socket.emit('message', {
+                        group_id: groupid,
+                        content: message
+                    });
+                    messageInput.value = '';
+                }
+            });
+
+            socket.on('message', function (data) {
+                const chatBox = document.getElementById('chat-box');
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+
+                let currentuser = document.getElementById('current_user').value;
+                if (data.username === currentuser) {
+                    messageElement.classList.add('self-message'); // Current user's message
+                } else {
+                    messageElement.classList.add('other-message'); // Other user's message
+                    messageElement.style.backgroundColor = getColorForUser(data.username); // Assign color based on username
+                }
+
+                messageElement.innerHTML = `
+                ${data.username !== currentuser ? '<span>' + '' + '</span>' : ''} ${data.content}
+            `;
+
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+
+            window.addEventListener('beforeunload', function () {
+                socket.emit('leave', {username: username, group_id: groupid});
+            });
+        });
+    </script>
+
+    <style>
+        #chat-box {
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .self-message {
+            text-align: left;
+            background-color: #007bff; /* Blue background for current user's messages */
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            max-width: 70%;
+            align-self: flex-end !important;
+        }
+
+        .other-message {
+            text-align: left;
+            background-color: #28a745; /* Default green background for other users' messages */
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            max-width: 70%;
+            align-self: flex-start;
+        }
+
+        .other-message span {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+    </style>
+{% endblock %}

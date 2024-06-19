@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">Select Group</div>
+                <div class="card-body">
+                    <form id="group-form" method="POST">
+                        <div class="form-group">
+                            <label for="group_id">Group</label>
+                            <select id="group_id" name="group_id" class="form-control">
+                                {% for group in groups %}
+                                    <option value="{{ group.id }}">{{ group.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Go</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div id="slide-container">
+                        <img width="50%" height="50%" id="slide-image" src="" alt="Slide Image">
+                    </div>
+                    <div class="mt-3">
+                        <button id="prev-btn" class="btn btn-secondary">Previous</button>
+                        <button id="next-btn" class="btn btn-primary">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        const socket = io();
+
+        function joinGroup(groupId) {
+            socket.emit('join', {group_id: groupId});
+        }
+
+        document.getElementById('group-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const groupId = document.getElementById('group_id').value;
+            joinGroup(groupId);
+            socket.emit('join', { group_id: groupId });
+            sessionStorage.setItem('current_group_id', groupId);
+        });
+
+        document.getElementById('prev-btn').addEventListener('click', function () {
+            const groupId = sessionStorage.getItem('current_group_id');
+            socket.emit('change_slide', {group_id: groupId, direction: 'previous'});
+        });
+
+        document.getElementById('next-btn').addEventListener('click', function () {
+            const groupId = sessionStorage.getItem('current_group_id');
+            socket.emit('change_slide', {group_id: groupId, direction: 'next'});
+        });
+
+        socket.on('slide_changed', function (data) {
+            const slideImage = document.getElementById('slide-image');
+            slideImage.src = data.slide;
+        });
+    </script>
+{% endblock %}

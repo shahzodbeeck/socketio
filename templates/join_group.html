@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Join Group</div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="group_id">Group Shortcode</label>
+                        <input type="text" id="group_id" name="group_id" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Join Group</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Add Slide to Group{% endblock %}
+{% block content %}
+<h1>Add Slide to Group</h1>
+<form method="POST" action="{{ url_for('add_slide_to_group') }}">
+    <label for="image">Image URL:</label>
+    <input type="text" id="image" name="image" required>
+    <br>
+    <label for="group_id">Group ID:</label>
+    <input type="number" id="group_id" name="group_id" required>
+    <br>
+    <button type="submit">Add Slide</button>
+</form>
+{% endblock %}

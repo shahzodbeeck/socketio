@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <div id="slide-container">
+                        <img width="60%" height="60%" id="slide-image" src="" alt="Slide Image">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-body">
+                    <div id="group-form" class="form-inline">
+                        <div class="form-group mx-sm-3 mb-2">
+                            <label for="group_id" class="sr-only">Group ID</label>
+                            <input type="text" class="form-control" id="group_id" placeholder="Enter Group ID">
+                        </div>
+                        <button id="submit_button" type="button" class="btn btn-primary mb-2">Join Group</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            const socket = io();
+
+            socket.on('slide_changed', function(data) {
+                const slideImage = document.getElementById('slide-image');
+                slideImage.src = data.slide;
+            });
+
+            function joinGroup(groupId) {
+                socket.emit('join', { group_id: groupId });
+            }
+
+            document.getElementById('submit_button').addEventListener('click', function(event) {
+                event.preventDefault();
+
+                const groupId = document.getElementById('group_id').value.trim();
+                if (groupId !== '') {
+                    joinGroup(groupId);
+                } else {
+                    console.log('Group ID cannot be empty');
+                }
+            });
+        });
+    </script>
+{% endblock %}

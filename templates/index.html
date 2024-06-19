@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+            integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"
+            integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body style="text-align: center;font-family: Arial,Serif;font-size: 14pt">
+
+<div id="chat-container" style="margin: 0 auto;width: 60%;text-align: left; min-height: 300px">
+    <input type="text" id="username" placeholder="username" required>
+    <input type="text" id="room" placeholder="room" required>
+    <button id="join-btn">Join Room</button>
+    <button id="leave-btn">Leave Room</button>
+    <input type="text" id="message" placeholder="message" required>
+    <button id="send-btn">Send</button>
+    <div id="messages" style="margin-top: 20px;"></div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        let socket = io.connect('http://192.168.68.113:5000/');
+
+        socket.on('connect', function () {
+            console.log("Connected to server");
+        });
+
+        socket.on('notification', function (data) {
+            let message = data.user ? data.user + ': ' + data.message : data.message;
+            $('#messages').append($('<p>').text(message));
+
+            if ($('#username').val() == data.user) {
+                // No action needed if the notification is from the current user
+            } else {
+                if (Notification.permission === 'granted') {
+                    new Notification(message);
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(function (permission) {
+                        if (permission === 'granted') {
+                            new Notification(message);
+                        }
+                    });
+                }
+                console.log("Notification received:", message);
+            }
+        });
+
+
+        $('#join-btn').on('click', function () {
+            let username = $('#username').val();
+            let room = $('#room').val();
+            if (username && room) {
+                socket.emit('join', {'username': username, 'room': room});
+            } else {
+                alert("Both username and room are required to join a room.");
+            }
+        });
+
+        $('#leave-btn').on('click', function () {
+            let username = $('#username').val();
+            let room = $('#room').val();
+            if (username && room) {
+                socket.emit('leave', {'username': username, 'room': room});
+            } else {
+                alert("Both username and room are required to leave a room.");
+            }
+        });
+
+        $('#send-btn').on('click', function () {
+            let room = $('#room').val();
+            let user = $('#username').val();
+            let message = $('#message').val();
+            if (room && message) {
+                socket.emit('message', {'room': room, 'message': message, 'user': user});
+                $('#message').val('');
+            } else {
+                alert("Both room and message are required to send a message.");
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
