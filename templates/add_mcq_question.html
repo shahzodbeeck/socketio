@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add MCQ Question</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Add MCQ Question</h1>
+    <form method="POST">
+        <div>
+            <label for="group_id">Group:</label>
+            <select name="group_id" id="group_id" required>
+                {% for group in groups %}
+                <option value="{{ group.id }}">{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="content">Question:</label>
+            <input type="text" name="content" id="content" required>
+        </div>
+        <div>
+            <label for="option1">Option 1:</label>
+            <input type="text" name="options" id="option1" required>
+        </div>
+        <div>
+            <label for="option2">Option 2:</label>
+            <input type="text" name="options" id="option2" required>
+        </div>
+        <div>
+            <label for="option3">Option 3:</label>
+            <input type="text" name="options" id="option3" required>
+        </div>
+        <div>
+            <label for="option4">Option 4:</label>
+            <input type="text" name="options" id="option4" required>
+        </div>
+        <div>
+            <label for="correct_option">Correct Option:</label>
+            <input type="text" name="correct_option" id="correct_option" required>
+        </div>
+        <button type="submit">Add Question</button>
+    </form>
+    <a href="{{ url_for('admin') }}">Back to Admin</a>
+</body>
+</html>

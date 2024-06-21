@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <h1>Welcome, {{ current_user.username }}</h1>
+                <p>This is your student dashboard.</p>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 id="current-question">Loading question...</h2>
+                    </div>
+                    <div class="card-body">
+                        <ul id="options-list" class="list-group">
+                            <!-- Options will be dynamically populated -->
+                        </ul>
+                        <button id="submit-answer" class="btn btn-primary mt-3">Submit Answer</button>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="btn btn-danger mt-3">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+    <script>
+        var socket = io();
+
+        socket.on('new_question', function (data) {
+            document.getElementById('current-question').innerText = data.question;
+
+            var optionsList = document.getElementById('options-list');
+            optionsList.innerHTML = '';
+
+            data.options.forEach(function (option) {
+                var li = document.createElement('li');
+                li.className = 'list-group-item';
+                var div = document.createElement('div');
+                div.className = 'form-check';
+                var input = document.createElement('input');
+                input.className = 'form-check-input';
+                input.type = 'radio';
+                input.name = 'answer';
+                input.id = 'option' + option.id;
+                input.value = option.id;
+                input.setAttribute('id', data.id)
+
+                var label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.setAttribute('for', 'option' + option.id);
+                label.innerText = option.option_text;
+
+                div.appendChild(input);
+                div.appendChild(label);
+                li.appendChild(div);
+                optionsList.appendChild(li);
+            });
+        });
+
+        // Event listener for handling answer submission
+        document.getElementById('submit-answer').addEventListener('click', function () {
+            var selectedOption = document.querySelector('input[name="answer"]:checked');
+
+            if (!selectedOption) {
+                alert('Please select an answer.');
+                return;
+            }
+
+            var answerId = selectedOption.value;
+            socket.emit('submit_answer', {
+                answer_id: answerId,
+                group_id: {{current_group_id}},
+                'question_id': selectedOption.getAttribute('id')
+            },);
+        });
+
+        document.querySelector('.btn-danger').addEventListener('click', function () {
+        });
+
+        function joinGroup(groupId) {
+            socket.emit('join', {group_id: groupId});
+        }
+
+        joinGroup({{ current_group_id }});
+    </script>
+{% endblock %}

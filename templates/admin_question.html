@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+
+{% block content %}
+    <h1>Manage Questions and Answers</h1>
+
+    <div id="question-section">
+        <h2>Current Question:</h2>
+        <div id="current-question">
+            {% if current_question %}
+                <p class="hi">{{ current_question.question_text }}</p>
+            {% else %}
+                <p>No question selected.</p>
+            {% endif %}
+        </div>
+        <button id="previous-question">Previous Question</button>
+        <button id="next-question">Next Question</button>
+    </div>
+
+    <div id="answers-section">
+        <h2>Answers:</h2>
+        {% if current_question %}
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Answer</th>
+                    <th>Correct</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for user in users %}
+                    {% set answered = false %}
+                    {% set user_answer = None %}
+                    {% for answer in user_answers %}
+                        {% if answer.user_id == user.id %}
+                            {% set answered = true %}
+                            {% set user_answer = answer %}
+                        {% endif %}
+                    {% endfor %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user_answer.option.option_text if answered else 'No answer' }}</td>
+                        <td>{{ 'Yes' if (answered and user_answer.option.is_correct) else 'No' }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No current question selected.</p>
+        {% endif %}
+    </div>
+    <a href="{{ url_for('admin') }}">Back to Admin</a>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        var socket = io();
+
+        document.getElementById('next-question').onclick = function () {
+            socket.emit('change_question', {direction: 'next', group_id: {{ current_group_id }}});
+        };
+
+        document.getElementById('previous-question').onclick = function () {
+            socket.emit('change_question', {direction: 'previous', group_id: {{ current_group_id }}});
+        };
+
+        socket.on('question_changed', function (data) {
+            document.querySelector('.hi').innerHTML = data.question_text;
+            updateAnswers(); // Update answers when question changes
+        });
+
+        socket.on('status', function (data) {
+            alert(data.msg);
+        });
+
+        function joinGroup(groupId) {
+            socket.emit('join', {group_id: groupId});
+        }
+
+        function updateAnswers() {
+            socket.emit('get_user_answers', {question_id: {{ current_question.id }}});
+        }
+
+        socket.on('user_answers', function (data) {
+            var user_answers = data.user_answers;
+            var answersSection = document.getElementById('answers-section');
+            var html = '';
+
+            if (user_answers.length > 0) {
+                html += '<table class="table table-striped">';
+                html += '<thead><tr><th>User</th><th>Answer</th><th>Correct</th></tr></thead>';
+                html += '<tbody>';
+
+                user_answers.forEach(function (answer) {
+                    html += '<tr>';
+                    html += '<td>' + answer.username + '</td>';
+                    html += '<td>' + answer.option + '</td>';
+                    html += '<td>' + (answer.is_correct ? 'Yes' : 'No') + '</td>';
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+            } else {
+                html += '<p>No answers available for this question.</p>';
+            }
+
+            answersSection.innerHTML = html;
+        });
+
+
+        joinGroup({{ current_group_id }});
+    </script>
+{% endblock %}

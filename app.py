@@ -1,10 +1,13 @@
+import datetime
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from flask_login import LoginManager, login_user, current_user, login_required, logout_user, UserMixin
+from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin
+from flask_login import current_user
 from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-import datetime
+from sqlalchemy import and_
 
 app = Flask(__name__)
 
@@ -68,6 +71,39 @@ class Messages(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     content = db.Column(db.String, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+
+class MCQQuestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    question_text = db.Column(db.String(255), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    options = db.relationship('MCQOption', backref='question', lazy=True)
+
+
+class MCQOption(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    option_text = db.Column(db.String(100), nullable=False)
+    is_correct = db.Column(db.Boolean, default=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('mcq_question.id'), nullable=False)
+
+
+class MCQAnswer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('mcq_question.id'), nullable=False)
+    answer_option_id = db.Column(db.Integer, db.ForeignKey('mcq_option.id'), nullable=False)
+
+    # Define the relationship to MCQOption
+    answer_option = db.relationship('MCQOption', backref='answers')
+
+
+class StudentPoints(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    points = db.Column(db.Integer, default=0)
+    user = db.relationship('User', backref=db.backref('student_points', lazy=True))
+    group = db.relationship('Group', backref=db.backref('student_points', lazy=True))
 
 
 @login_manager.user_loader
@@ -308,6 +344,191 @@ def handle_disconnect():
     for group in current_user.groups:
         leave_room(group.id)
         emit('status', {'msg': f'{username} has disconnected.'}, room=group.id)
+
+
+
+
+@app.route('/add_mcq_question', methods=['GET', 'POST'])
+@login_required
+def add_mcq_question():
+    if request.method == 'POST':
+        group_id = request.form['group_id']
+        content = request.form['content']
+        options = request.form.getlist('options')
+        correct_option = request.form['correct_option']
+
+        new_mcq_question = MCQQuestion(question_text=content, group_id=group_id)
+        db.session.add(new_mcq_question)
+        db.session.commit()
+
+        for option in options:
+            is_correct = option == correct_option
+            new_mcq_answer = MCQOption(option_text=option, is_correct=is_correct, question_id=new_mcq_question.id)
+            db.session.add(new_mcq_answer)
+
+        db.session.commit()
+        flash('MCQ Question added successfully', 'success')
+    groups = Group.query.all()
+    return render_template('add_mcq_question.html', groups=groups)
+
+
+@app.route('/answer_mcq_question/<int:question_id>', methods=['GET', 'POST'])
+@login_required
+def answer_mcq_question(question_id):
+    question = MCQQuestion.query.get_or_404(question_id)
+    if request.method == 'POST':
+        selected_option = request.form['option']
+        answer = MCQAnswer.query.filter_by(content=selected_option, question_id=question_id).first()
+
+        if answer and answer.is_correct:
+            points_entry = StudentPoints.query.filter_by(user_id=current_user.id, group_id=question.group_id).first()
+            if not points_entry:
+                points_entry = StudentPoints(user_id=current_user.id, group_id=question.group_id, points=0)
+                db.session.add(points_entry)
+
+            points_entry.points += 1
+            db.session.commit()
+            flash('Correct answer! You have been awarded a point.', 'success')
+        else:
+            flash('Incorrect answer. Try again.', 'danger')
+
+    return render_template('answer_mcq_question.html', question=question, current_group_id=question_id)
+
+
+@app.route('/view_points', methods=['GET'])
+@login_required
+def view_points():
+    points = StudentPoints.query.filter_by(user_id=current_user.id).all()
+    return render_template('view_points.html', points=points)
+
+
+@app.route('/admin_question/<int:group_id>', methods=['GET', 'POST'])
+@login_required
+def admin_question(group_id):
+    if not current_user.is_admin:
+        flash('Access denied', 'danger')
+        return redirect(url_for('index'))
+
+    current_question = MCQQuestion.query.filter_by(group_id=group_id).first()
+
+    return render_template('admin_question.html', current_group_id=group_id,
+                           current_question=current_question)
+
+
+@socketio.on('change_question')
+def handle_change_question(data):
+    group_id = data['group_id']
+    direction = data['direction']
+
+    # Get the current question based on the stored current_question_id in session
+    current_question_id = session.get('current_question_id')
+    if current_question_id:
+        current_question = MCQQuestion.query.filter(MCQQuestion.id ==current_question_id).first()
+    else:
+        current_question = MCQQuestion.query.filter_by(group_id=group_id).first()
+
+    if current_question:
+        if direction == 'next':
+            next_question = MCQQuestion.query.filter(MCQQuestion.id > current_question.id,
+                                                     MCQQuestion.group_id == group_id).order_by(MCQQuestion.id).first()
+            if not next_question:
+                next_question = MCQQuestion.query.filter(MCQQuestion.group_id == group_id).order_by(
+                    MCQQuestion.id).first()  # Wrap around to the first question
+        elif direction == 'previous':
+            next_question = MCQQuestion.query.filter(MCQQuestion.id < current_question.id,
+                                                     MCQQuestion.group_id == group_id).order_by(
+                MCQQuestion.id.desc()).first()
+            if not next_question:
+                next_question = MCQQuestion.query.filter(MCQQuestion.group_id == group_id).order_by(
+                    MCQQuestion.id.desc()).first()  # Wrap around to the last question
+
+        if next_question:
+            session['current_question_id'] = next_question.id
+            socketio.emit('question_changed',
+                          {'question_id': next_question.id, 'question_text': next_question.question_text},
+                          room=group_id)
+
+            options = [{'id': option.id, 'option_text': option.option_text} for option in next_question.options]
+            socketio.emit('new_question',
+                          {'question': next_question.question_text, 'id': next_question.id, 'options': options},
+                          room=group_id)
+        else:
+            socketio.emit('status', {'msg': 'No more questions in this direction.'}, room=group_id)
+    else:
+        socketio.emit('status', {'msg': 'No current question found.'}, room=group_id)
+
+
+@socketio.on('submit_answer')
+def handle_submit_answer(data):
+    answer_id = data['answer_id']
+    group_id = data['group_id']
+    question_id = data['question_id']
+    current_user_id = current_user.id
+
+    answer_option = MCQOption.query.filter(MCQOption.id ==answer_id).first()
+
+    if not question_id:
+        emit('answer_status', {'msg': 'No active question.', 'answer_id': answer_id}, room=current_user_id)
+        return
+
+    if answer_option:
+        new_ans = MCQAnswer.query.filter(
+            and_(MCQAnswer.user_id == current_user_id, MCQAnswer.question_id == question_id)
+        ).first()
+
+        if new_ans:
+            answer_id = new_ans.id
+        else:
+            new_answer = MCQAnswer(user_id=current_user_id, question_id=question_id, answer_option_id=answer_option.id)
+            db.session.add(new_answer)
+            db.session.commit()
+            answer_id = new_answer.id
+
+        emit('answer_status', {'msg': 'Answer submitted successfully!', 'answer_id': answer_id}, room=group_id)
+        emit_update_answers(question_id, group_id)
+
+def emit_update_answers(question_id, group_id):
+    question = MCQQuestion.query.filter(MCQQuestion.id ==question_id).filter()
+
+    if not question:
+        emit('user_answers', {'users': [], 'user_answers': []}, room=group_id)
+        return
+
+    answers = MCQAnswer.query.filter_by(question_id=question_id).all()
+
+    users = User.query.all()
+
+    user_answers = []
+
+    for user in users:
+        answer_found = False
+        for answer in answers:
+            if answer.user_id == user.id:
+                option_text = answer.answer_option.option_text if answer.answer_option else 'No answer'
+                is_correct = answer.answer_option.is_correct if answer.answer_option else False
+
+                user_answer = {
+                    'user_id': user.id,
+                    'username': user.username,
+                    'option': option_text,
+                    'is_correct': is_correct
+                }
+                user_answers.append(user_answer)
+                answer_found = True
+                break
+
+        # if not answer_found:
+        #     user_answer = {
+        #         'user_id': user.id,
+        #         'username': user.username,
+        #         'option': 'No answer',
+        #         'is_correct': False
+        #     }
+        #     user_answers.append(user_answer)
+
+    # users_dict = [{'id': user.id, 'username': user.username} for user in users]
+
+    emit('user_answers', {'user_answers': user_answers}, room=group_id)
 
 
 if __name__ == '__main__':
