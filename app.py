@@ -93,7 +93,6 @@ class MCQAnswer(db.Model):
     question_id = db.Column(db.Integer, db.ForeignKey('mcq_question.id'), nullable=False)
     answer_option_id = db.Column(db.Integer, db.ForeignKey('mcq_option.id'), nullable=False)
 
-    # Define the relationship to MCQOption
     answer_option = db.relationship('MCQOption', backref='answers')
 
 
@@ -228,13 +227,13 @@ def handle_change_slide(data):
                     Slide.id).first()
                 if not next_slide:
                     next_slide = Slide.query.filter(Slide.group_id == group_id).order_by(
-                        Slide.id).first()  # Wrap around to the first slide
+                        Slide.id).first()
             elif direction == 'previous':
                 next_slide = Slide.query.filter(Slide.id < current_slide.id, Slide.group_id == group_id).order_by(
                     Slide.id.desc()).first()
                 if not next_slide:
                     next_slide = Slide.query.filter(Slide.group_id == group_id).order_by(
-                        Slide.id.desc()).first()  # Wrap around to the last slide
+                        Slide.id.desc()).first()
 
             if next_slide:
                 current_slide.current = False
@@ -420,7 +419,6 @@ def handle_change_question(data):
     group_id = data['group_id']
     direction = data['direction']
 
-    # Get the current question based on the stored current_question_id in session
     current_question_id = session.get('current_question_id')
     if current_question_id:
         current_question = MCQQuestion.query.filter(MCQQuestion.id ==current_question_id).first()
@@ -433,14 +431,14 @@ def handle_change_question(data):
                                                      MCQQuestion.group_id == group_id).order_by(MCQQuestion.id).first()
             if not next_question:
                 next_question = MCQQuestion.query.filter(MCQQuestion.group_id == group_id).order_by(
-                    MCQQuestion.id).first()  # Wrap around to the first question
+                    MCQQuestion.id).first()
         elif direction == 'previous':
             next_question = MCQQuestion.query.filter(MCQQuestion.id < current_question.id,
                                                      MCQQuestion.group_id == group_id).order_by(
                 MCQQuestion.id.desc()).first()
             if not next_question:
                 next_question = MCQQuestion.query.filter(MCQQuestion.group_id == group_id).order_by(
-                    MCQQuestion.id.desc()).first()  # Wrap around to the last question
+                    MCQQuestion.id.desc()).first()
 
         if next_question:
             session['current_question_id'] = next_question.id
@@ -501,7 +499,6 @@ def emit_update_answers(question_id, group_id):
     user_answers = []
 
     for user in users:
-        answer_found = False
         for answer in answers:
             if answer.user_id == user.id:
                 option_text = answer.answer_option.option_text if answer.answer_option else 'No answer'
@@ -514,7 +511,6 @@ def emit_update_answers(question_id, group_id):
                     'is_correct': is_correct
                 }
                 user_answers.append(user_answer)
-                answer_found = True
                 break
 
         # if not answer_found:

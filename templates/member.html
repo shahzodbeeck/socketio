@@ -17,9 +17,13 @@
         <div class="col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-body">
+
+
                     <div id="group-form" class="form-inline">
                         <div class="form-group mx-sm-3 mb-2">
-                            <label for="group_id" class="sr-only">Group ID</label>
+                            <label for="group_id" class="sr-only">
+                                <G></G>
+                                roup ID</label>
                             <input type="text" class="form-control" id="group_id" placeholder="Enter Group ID">
                         </div>
                         <button id="submit_button" type="button" class="btn btn-primary mb-2">Join Group</button>
@@ -33,19 +37,19 @@
 {% block scripts %}
     {{ super() }}
     <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const socket = io();
 
-            socket.on('slide_changed', function(data) {
+            socket.on('slide_changed', function (data) {
                 const slideImage = document.getElementById('slide-image');
                 slideImage.src = data.slide;
             });
 
             function joinGroup(groupId) {
-                socket.emit('join', { group_id: groupId });
+                socket.emit('join', {group_id: groupId});
             }
 
-            document.getElementById('submit_button').addEventListener('click', function(event) {
+            document.getElementById('submit_button').addEventListener('click', function (event) {
                 event.preventDefault();
 
                 const groupId = document.getElementById('group_id').value.trim();
